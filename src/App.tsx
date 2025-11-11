@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { Store } from "@tauri-apps/plugin-store";
 import { useVaultStore } from "./stores/vaultStore";
 import FileTree from "./components/FileTree";
 import MarkdownEditor from "./components/MarkdownEditor";
 import GraphView from "./components/GraphView";
+import Onboarding from "./components/Onboarding";
 import { VaultEntry } from "./types";
 import { Button } from "./components/ui/button";
 import {
@@ -14,11 +16,25 @@ import {
 } from "./components/ui/resizable";
 
 type View = "editor" | "graph";
+const store = new Store(".settings.dat");
 
 function App() {
   const { vault, setVault, vaultEntries, setVaultEntries, setLoading } =
     useVaultStore();
   const [currentView, setCurrentView] = useState<View>("editor");
+  const [isGitConfigured, setIsGitConfigured] = useState(false);
+
+  useEffect(() => {
+    const checkGitConfig = async () => {
+      const name = await store.get("git.name");
+      setIsGitConfigured(!!name);
+    };
+    checkGitConfig();
+  }, []);
+
+  const handleOnboardingComplete = () => {
+    setIsGitConfigured(true);
+  };
 
   const selectVault = async () => {
     const selected = await open({
@@ -45,10 +61,9 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    // Optionally, try to open a default vault or the last opened one
-    // For now, we'll just prompt the user to select one.
-  }, []);
+  if (!isGitConfigured) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
 
   return (
     <div className="h-screen w-screen flex flex-col">

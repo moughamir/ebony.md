@@ -4,6 +4,7 @@ use crate::plugins::{Plugin, PluginManager};
 use crate::search::SearchEngine;
 use crate::vault::{VaultEntry, VaultManager};
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::State;
 
 #[tauri::command]
@@ -44,20 +45,22 @@ pub async fn search_notes(query: String, vault_path: String) -> Result<Vec<Searc
 #[tauri::command]
 pub async fn load_plugin(
     plugin_path: String,
-    state: State<'_, PluginManager>,
+    state: State<'_, Mutex<PluginManager>>,
 ) -> Result<(), String> {
     state
+        .lock()
+        .unwrap()
         .load_plugin(PathBuf::from(plugin_path))
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn list_plugins(state: State<'_, PluginManager>) -> Result<Vec<Plugin>, String> {
-    Ok(state.list_plugins())
+pub async fn list_plugins(state: State<'_, Mutex<PluginManager>>) -> Result<Vec<Plugin>, String> {
+    Ok(state.lock().unwrap().list_plugins())
 }
 
 #[tauri::command]
-pub async fn load_theme(theme_path: String) -> Result<(), String> {
+pub async fn load_theme(_theme_path: String) -> Result<(), String> {
     // Implementation for loading themes
     Ok(())
 }

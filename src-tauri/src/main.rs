@@ -8,9 +8,14 @@ mod search;
 mod vault;
 
 use commands::*;
+use plugins::PluginManager;
+use std::sync::Mutex;
 
 fn main() {
+    let plugin_manager = Mutex::new(PluginManager::new());
+
     tauri::Builder::default()
+        .manage(plugin_manager)
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
