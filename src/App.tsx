@@ -9,6 +9,7 @@ import GraphView from "./components/GraphView";
 import Onboarding from "./components/Onboarding";
 import { VaultEntry } from "./types";
 import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -23,6 +24,7 @@ function App() {
     useVaultStore();
   const [currentView, setCurrentView] = useState<View>("editor");
   const [isGitConfigured, setIsGitConfigured] = useState(false);
+  const [commitMessage, setCommitMessage] = useState("");
 
   useEffect(() => {
     const checkGitConfig = async () => {
@@ -72,6 +74,51 @@ function App() {
     }
   };
 
+  const gitAddAll = async () => {
+    if (vault) {
+      try {
+        await invoke("git_add_all", { path: vault.path });
+        console.log("All changes added to staging!");
+      } catch (error) {
+        console.error("Failed to add all changes:", error);
+      }
+    }
+  };
+
+  const gitCommit = async () => {
+    if (vault && commitMessage) {
+      try {
+        await invoke("git_commit", { path: vault.path, message: commitMessage });
+        console.log("Changes committed successfully!");
+        setCommitMessage("");
+      } catch (error) {
+        console.error("Failed to commit changes:", error);
+      }
+    }
+  };
+
+  const gitPush = async () => {
+    if (vault) {
+      try {
+        await invoke("git_push", { path: vault.path });
+        console.log("Changes pushed successfully!");
+      } catch (error) {
+        console.error("Failed to push changes:", error);
+      }
+    }
+  };
+
+  const gitPull = async () => {
+    if (vault) {
+      try {
+        await invoke("git_pull", { path: vault.path });
+        console.log("Changes pulled successfully!");
+      } catch (error) {
+        console.error("Failed to pull changes:", error);
+      }
+    }
+  };
+
   if (!isGitConfigured) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
   }
@@ -87,7 +134,7 @@ function App() {
       ) : (
         <>
           <div className="p-2 border-b flex justify-between items-center">
-            <div>
+            <div className="flex items-center space-x-2">
               <Button
                 variant={currentView === "editor" ? "secondary" : "ghost"}
                 onClick={() => setCurrentView("editor")}
@@ -101,9 +148,29 @@ function App() {
                 Graph
               </Button>
             </div>
-            <Button onClick={initializeGit} variant="outline">
-              Initialize Git
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button onClick={initializeGit} variant="outline">
+                Initialize Git
+              </Button>
+              <Button onClick={gitAddAll} variant="outline">
+                Add All
+              </Button>
+              <Input
+                placeholder="Commit message"
+                value={commitMessage}
+                onChange={(e) => setCommitMessage(e.target.value)}
+                className="w-48"
+              />
+              <Button onClick={gitCommit} variant="outline">
+                Commit
+              </Button>
+              <Button onClick={gitPush} variant="outline">
+                Push
+              </Button>
+              <Button onClick={gitPull} variant="outline">
+                Pull
+              </Button>
+            </div>
           </div>
           <ResizablePanelGroup direction="horizontal" className="flex-grow">
             <ResizablePanel defaultSize={20} minSize={15}>
