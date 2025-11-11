@@ -1,11 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useVaultStore } from '@/stores/vaultStore';
-import { invoke } from '@tauri-apps/api/core';
-import { Textarea } from './ui/textarea';
-import { useDebounce } from '@/hooks/useDebounce';
+import React, { useEffect, useState, useCallback } from "react";
+import { useVaultStore } from "@/stores/vaultStore";
+import { invoke } from "@tauri-apps/api/core";
+import { useDebounce } from "@/hooks/useDebounce";
+import MDEditor from "@uiw/react-md-editor";
+import "@uiw/react-md-editor/markdown-editor.css";
+import "@uiw/react-markdown-preview/markdown.css";
 
 const MarkdownEditor: React.FC = () => {
-  const { currentFileContent, currentFilePath, setCurrentFileContent } = useVaultStore();
+  const { currentFileContent, currentFilePath, setCurrentFileContent } =
+    useVaultStore();
   const [editorContent, setEditorContent] = useState(currentFileContent);
 
   // Update local state when store content changes (e.g., new file selected)
@@ -13,34 +16,40 @@ const MarkdownEditor: React.FC = () => {
     setEditorContent(currentFileContent);
   }, [currentFileContent]);
 
-  const saveContent = useCallback(async (content: string) => {
-    if (currentFilePath) {
-      try {
-        await invoke("write_note_content", { path: currentFilePath, content });
-        console.log("Content saved successfully!");
-      } catch (error) {
-        console.error("Failed to save content:", error);
+  const saveContent = useCallback(
+    async (content: string) => {
+      if (currentFilePath) {
+        try {
+          await invoke("write_note_content", {
+            path: currentFilePath,
+            content,
+          });
+          console.log("Content saved successfully!");
+        } catch (error) {
+          console.error("Failed to save content:", error);
+        }
       }
-    }
-  }, [currentFilePath]);
+    },
+    [currentFilePath]
+  );
 
   const debouncedSave = useDebounce(saveContent, 1000); // Save after 1 second of inactivity
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
+  const handleChange = (value: string | undefined) => {
+    const newContent = value || "";
     setEditorContent(newContent);
-    setCurrentFileContent(newContent); // Update store immediately for UI consistency
-    debouncedSave(newContent); // Debounce saving to backend
+    setCurrentFileContent(newContent);
+    debouncedSave(newContent);
   };
 
   return (
-    <div className="h-full w-full p-4">
+    <div className="h-full w-full p-4" data-color-mode="light">
       {currentFilePath ? (
-        <Textarea
-          className="h-full w-full resize-none border-none focus-visible:ring-0"
+        <MDEditor
           value={editorContent}
           onChange={handleChange}
-          placeholder="Start writing your markdown note here..."
+          height="100%"
+          preview="live"
         />
       ) : (
         <div className="flex items-center justify-center h-full text-muted-foreground">

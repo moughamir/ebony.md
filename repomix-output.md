@@ -332,13 +332,13 @@ import { NoteGraph } from '@/types';
 
 ## File: src/components/MarkdownEditor.tsx
 ````typescript
-import React, { useEffect, useState, useCallback } from 'react';
-import { useVaultStore } from '@/stores/vaultStore';
-import { invoke } from '@tauri-apps/api/core';
-import { Textarea } from './ui/textarea';
-import { useDebounce } from '@/hooks/useDebounce';
+import React, { useEffect, useState, useCallback } from "react";
+import { useVaultStore } from "@/stores/vaultStore";
+import { invoke } from "@tauri-apps/api/core";
+import { useDebounce } from "@/hooks/useDebounce";
+import MDEditor from "@uiw/react-md-editor";
 ⋮----
-const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+const handleChange = (value: string | undefined) =>
 ````
 
 ## File: src/components/Onboarding.tsx
@@ -1634,7 +1634,7 @@ SOFTWARE.
 ## File: src/stores/vaultStore.ts
 ````typescript
 import { create } from 'zustand';
-import { NoteGraph, Vault, VaultEntry } from '@/types';
+import { Note, NoteGraph, Vault, VaultEntry } from '@/types';
 interface VaultState {
   vault: Vault | null;
   vaultEntries: VaultEntry[];
@@ -1643,6 +1643,12 @@ interface VaultState {
   currentFilePath: string | null;
   noteGraph: NoteGraph | null;
   isLoading: boolean;
+  notes: Note[];
+  currentNote: Note | null;
+  addNote: (note: Note) => void;
+  updateNote: (id: string, updates: Partial<Note>) => void;
+  deleteNote: (id: string) => void;
+  setCurrentNote: (note: Note | null) => void;
   setVault: (vault: Vault | null) => void;
   setVaultEntries: (entries: VaultEntry[]) => void;
   setSelectedEntry: (entry: VaultEntry | null) => void;
@@ -1846,28 +1852,12 @@ onlyBuiltDependencies:
   - esbuild
 ````
 
-## File: tailwind.config.ts
-````typescript
-import type { Config } from 'tailwindcss'
-````
-
 ## File: vite.config.ts
 ````typescript
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-````
-
-## File: src/index.css
-````css
-:root {
-.dark {
-@theme {
-@layer base {
-⋮----
-* {
-body {
 ````
 
 ## File: src-tauri/Cargo.toml
@@ -1909,9 +1899,247 @@ git2 = "0.19.0"
 tauri-plugin-single-instance = "2"
 ````
 
+## File: tailwind.config.ts
+````typescript
+import type { Config } from 'tailwindcss'
+````
+
+## File: src/index.css
+````css
+@theme {
+@layer base {
+⋮----
+body {
+````
+
+## File: package.json
+````json
+{
+  "name": "ebony",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tailwindcss/cli": "^4.1.17",
+    "@tailwindcss/vite": "^4.1.17",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.4.2",
+    "@tauri-apps/plugin-fs": "~2",
+    "@tauri-apps/plugin-opener": "~2",
+    "@tauri-apps/plugin-os": "~2.3.2",
+    "@tauri-apps/plugin-shell": "~2.3.3",
+    "@tauri-apps/plugin-sql": "~2.3.1",
+    "@tauri-apps/plugin-store": "~2",
+    "@uiw/react-md-editor": "^4.0.8",
+    "autoprefixer": "^10.4.22",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "lucide-react": "^0.553.0",
+    "postcss": "^8.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-force-graph-2d": "^1.23.13",
+    "react-hotkeys-hook": "^5.2.1",
+    "react-resizable-panels": "^3.0.6",
+    "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.0.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.4",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
+````
+
+## File: src/App.tsx
+````typescript
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Store } from "@tauri-apps/plugin-store";
+import { useVaultStore } from "./stores/vaultStore";
+import FileTree from "./components/FileTree";
+import MarkdownEditor from "./components/MarkdownEditor";
+import GraphView from "./components/GraphView";
+import Onboarding from "./components/Onboarding";
+import { VaultEntry } from "./types";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "./components/ui/resizable";
+type View = "editor" | "graph";
+⋮----
+const checkGitConfig = async () =>
+⋮----
+const handleOnboardingComplete = () =>
+const selectVault = async () =>
+const initializeGit = async () =>
+const gitAddAll = async () =>
+const gitCommit = async () =>
+const gitPush = async () =>
+const gitPull = async () =>
+````
+
+## File: src-tauri/src/commands.rs
+````rust
+use crate::search::SearchEngine;
+⋮----
+use git2::Repository;
+use std::path::PathBuf;
+use std::sync::Mutex;
+use tauri::State;
+⋮----
+pub async fn initialize_git_repo(path: String) -> Result<(), String> {
+⋮----
+.map(|_| ())
+.map_err(|e| format!("Failed to initialize git repository: {}", e))
+⋮----
+pub async fn git_add_all(path: String) -> Result<(), String> {
+let repo = Repository::open(&path).map_err(|e| format!("Failed to open repository: {}", e))?;
+let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
+index.add_all(["."], git2::IndexAddOption::DEFAULT, None)
+.map_err(|e| format!("Failed to add all files: {}", e))?;
+index.write().map_err(|e| format!("Failed to write index: {}", e))?;
+Ok(())
+⋮----
+pub async fn git_commit(path: String, message: String) -> Result<(), String> {
+⋮----
+let tree_id = index.write_tree().map_err(|e| format!("Failed to write tree: {}", e))?;
+let tree = repo.find_tree(tree_id).map_err(|e| format!("Failed to find tree: {}", e))?;
+let signature = repo.signature().map_err(|e| format!("Failed to get signature: {}", e))?;
+let parent_commit = find_last_commit(&repo)?;
+repo.commit(
+Some("HEAD"),
+⋮----
+.map_err(|e| format!("Failed to commit: {}", e))?;
+⋮----
+fn find_last_commit(repo: &Repository) -> Result<git2::Commit, String> {
+let obj = repo.head().map_err(|e| format!("Failed to get HEAD: {}", e))?.resolve().map_err(|e| format!("Failed to resolve HEAD: {}", e))?.peel(git2::ObjectType::Commit).map_err(|e| format!("Failed to peel HEAD: {}", e))?;
+obj.into_commit().map_err(|_| "Couldn't find commit".to_string())
+⋮----
+pub async fn git_push(path: String) -> Result<(), String> {
+⋮----
+let mut remote = repo.find_remote("origin").map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
+remote.push(&["refs/heads/main:refs/heads/main"], None)
+.map_err(|e| format!("Failed to push: {}", e))?;
+⋮----
+pub async fn git_pull(path: String) -> Result<(), String> {
+⋮----
+remote.fetch(&["main"], None, None)
+.map_err(|e| format!("Failed to fetch: {}", e))?;
+let fetch_commit = repo.find_reference("FETCH_HEAD").map_err(|e| format!("Failed to find FETCH_HEAD: {}", e))?.peel_to_commit().map_err(|e| format!("Failed to peel FETCH_HEAD to commit: {}", e))?;
+let (analysis, _) = repo.merge_analysis(&fetch_commit).map_err(|e| format!("Failed to analyze merge: {}", e))?;
+if analysis.is_up_to_date() {
+⋮----
+} else if analysis.is_fast_forward() {
+let mut reference = repo.find_reference("refs/heads/main").map_err(|e| format!("Failed to find main branch: {}", e))?;
+reference.set_target(fetch_commit.id(), "Fast-Forward").map_err(|e| format!("Failed to set target: {}", e))?;
+repo.set_head("refs/heads/main").map_err(|e| format!("Failed to set HEAD: {}", e))?;
+repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force())).map_err(|e| format!("Failed to checkout HEAD: {}", e))?;
+⋮----
+Err("Fast-forward merge not possible. Please resolve conflicts manually.".to_string())
+⋮----
+pub async fn get_note_graph(vault_path: String) -> Result<NoteGraph, String> {
+⋮----
+pub async fn open_vault(path: String) -> Result<Vec<VaultEntry>, String> {
+⋮----
+if !vault_path.exists() {
+return Err("Vault path does not exist".to_string());
+⋮----
+VaultManager::scan_vault(&vault_path).map_err(|e| e.to_string())
+⋮----
+pub async fn read_note_content(path: String) -> Result<String, String> {
+⋮----
+VaultManager::read_note(&note_path).map_err(|e| e.to_string())
+⋮----
+pub async fn write_note_content(path: String, content: String) -> Result<(), String> {
+⋮----
+VaultManager::write_note(&note_path, &content).map_err(|e| e.to_string())
+⋮----
+pub async fn search_notes(query: String, vault_path: String) -> Result<Vec<SearchResult>, String> {
+⋮----
+engine.search(&query).map_err(|e| e.to_string())
+⋮----
+pub async fn load_plugin(
+⋮----
+.lock()
+.unwrap()
+.load_plugin(PathBuf::from(plugin_path))
+.map_err(|e| e.to_string())
+⋮----
+pub async fn list_plugins(state: State<'_, Mutex<PluginManager>>) -> Result<Vec<Plugin>, String> {
+Ok(state.lock().unwrap().list_plugins())
+⋮----
+pub async fn load_theme(_theme_path: String) -> Result<(), String> {
+⋮----
+pub async fn list_themes() -> Result<Vec<Theme>, String> {
+Ok(vec![])
+⋮----
+pub struct SearchResult {
+⋮----
+pub struct Theme {
+````
+
+## File: src-tauri/src/main.rs
+````rust
+mod commands;
+mod graph;
+mod plugins;
+mod search;
+mod vault;
+⋮----
+use plugins::PluginManager;
+use std::sync::Mutex;
+fn main() {
+⋮----
+.manage(plugin_manager)
+.plugin(tauri_plugin_store::Builder::new().build())
+.plugin(tauri_plugin_sql::Builder::new().build())
+.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
+.plugin(tauri_plugin_shell::init())
+.plugin(tauri_plugin_os::init())
+.plugin(tauri_plugin_opener::init())
+.plugin(tauri_plugin_fs::init())
+.plugin(tauri_plugin_dialog::init())
+.invoke_handler(tauri::generate_handler![
+⋮----
+.run(tauri::generate_context!())
+.expect("error while running tauri application");
+````
+
 ## File: README.md
 ````markdown
 # 🪶 eBony.md — LLM-Driven Knowledge Workspace
+
+[![zread](https://img.shields.io/badge/Ask_Zread-_.svg?style=for-the-badge&color=00b0aa&labelColor=000000&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQuOTYxNTYgMS42MDAxSDIuMjQxNTZDMS44ODgxIDEuNjAwMSAxLjYwMTU2IDEuODg2NjQgMS42MDE1NiAyLjI0MDFWNC45NjAxQzEuNjAxNTYgNS4zMTM1NiAxLjg4ODEgNS42MDAxIDIuMjQxNTYgNS42MDAxSDQuOTYxNTZDNS4zMTUwMiA1LjYwMDEgNS42MDE1NiA1LjMxMzU2IDUuNjAxNTYgNC45NjAxVjIuMjQwMUM1LjYwMTU2IDEuODg2NjQgNS4zMTUwMiAxLjYwMDEgNC45NjE1NiAxLjYwMDFaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00Ljk2MTU2IDEwLjM5OTlIMi4yNDE1NkMxLjg4ODEgMTAuMzk5OSAxLjYwMTU2IDEwLjY4NjQgMS42MDE1NiAxMS4wMzk5VjEzLjc1OTlDMS42MDE1NiAxNC4xMTM0IDEuODg4MSAxNC4zOTk5IDIuMjQxNTYgMTQuMzk5OUg0Ljk2MTU2QzUuMzE1MDIgMTQuMzk5OSA1LjYwMTU2IDE0LjExMzQgNS42MDE1NiAxMy43NTk5VjExLjAzOTlDNS42MDE1NiAxMC42ODY0IDUuMzE1MDIgMTAuMzk5OSA0Ljk2MTU2IDEwLjM5OTlaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik0xMy43NTg0IDEuNjAwMUgxMS4wMzg0QzEwLjY4NSAxLjYwMDEgMTAuMzk4NCAxLjg4NjY0IDEwLjM5ODQgMi4yNDAxVjQuOTYwMUMxMC4zOTg0IDUuMzEzNTYgMTAuNjg1IDUuNjAwMSAxMS4wMzg0IDUuNjAwMUgxMy43NTg0QzE0LjExMTkgNS42MDAxIDE0LjM5ODQgNS4zMTM1NiAxNC4zOTg0IDQuOTYwMVYyLjI0MDFDMTQuMzk4NCAxLjg4NjY0IDE0LjExMTkgMS42MDAxIDEzLjc1ODQgMS42MDAxWiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNCAxMkwxMiA0TDQgMTJaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00IDEyTDEyIDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K&logoColor=ffffff)](https://zread.ai/moughamir/ebony.md)
+
+---
 
 **eBony.md** is an open-source, cross-platform **note-making and knowledge management app** built with **Tauri**, **React**, and **TypeScript** — designed as a lightweight, privacy-friendly alternative to Obsidian.
 
@@ -2117,221 +2345,4 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ## Recommended IDE Setup
 
 - [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
-````
-
-## File: src/App.tsx
-````typescript
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { Store } from "@tauri-apps/plugin-store";
-import { useVaultStore } from "./stores/vaultStore";
-import FileTree from "./components/FileTree";
-import MarkdownEditor from "./components/MarkdownEditor";
-import GraphView from "./components/GraphView";
-import Onboarding from "./components/Onboarding";
-import { VaultEntry } from "./types";
-import { Button } from "./components/ui/button";
-import { Input } from "./components/ui/input";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "./components/ui/resizable";
-type View = "editor" | "graph";
-⋮----
-const checkGitConfig = async () =>
-⋮----
-const handleOnboardingComplete = () =>
-const selectVault = async () =>
-const initializeGit = async () =>
-const gitAddAll = async () =>
-const gitCommit = async () =>
-const gitPush = async () =>
-const gitPull = async () =>
-````
-
-## File: src-tauri/src/commands.rs
-````rust
-use crate::search::SearchEngine;
-⋮----
-use git2::Repository;
-use std::path::PathBuf;
-use std::sync::Mutex;
-use tauri::State;
-⋮----
-pub async fn initialize_git_repo(path: String) -> Result<(), String> {
-⋮----
-.map(|_| ())
-.map_err(|e| format!("Failed to initialize git repository: {}", e))
-⋮----
-pub async fn git_add_all(path: String) -> Result<(), String> {
-let repo = Repository::open(&path).map_err(|e| format!("Failed to open repository: {}", e))?;
-let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
-index.add_all(["."], git2::IndexAddOption::DEFAULT, None)
-.map_err(|e| format!("Failed to add all files: {}", e))?;
-index.write().map_err(|e| format!("Failed to write index: {}", e))?;
-Ok(())
-⋮----
-pub async fn git_commit(path: String, message: String) -> Result<(), String> {
-⋮----
-let tree_id = index.write_tree().map_err(|e| format!("Failed to write tree: {}", e))?;
-let tree = repo.find_tree(tree_id).map_err(|e| format!("Failed to find tree: {}", e))?;
-let signature = repo.signature().map_err(|e| format!("Failed to get signature: {}", e))?;
-let parent_commit = find_last_commit(&repo)?;
-repo.commit(
-Some("HEAD"),
-⋮----
-.map_err(|e| format!("Failed to commit: {}", e))?;
-⋮----
-fn find_last_commit(repo: &Repository) -> Result<git2::Commit, String> {
-let obj = repo.head().map_err(|e| format!("Failed to get HEAD: {}", e))?.resolve().map_err(|e| format!("Failed to resolve HEAD: {}", e))?.peel(git2::ObjectType::Commit).map_err(|e| format!("Failed to peel HEAD: {}", e))?;
-obj.into_commit().map_err(|_| "Couldn't find commit".to_string())
-⋮----
-pub async fn git_push(path: String) -> Result<(), String> {
-⋮----
-let mut remote = repo.find_remote("origin").map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
-remote.push(&["refs/heads/main:refs/heads/main"], None)
-.map_err(|e| format!("Failed to push: {}", e))?;
-⋮----
-pub async fn git_pull(path: String) -> Result<(), String> {
-⋮----
-remote.fetch(&["main"], None, None)
-.map_err(|e| format!("Failed to fetch: {}", e))?;
-let fetch_commit = repo.find_reference("FETCH_HEAD").map_err(|e| format!("Failed to find FETCH_HEAD: {}", e))?.peel_to_commit().map_err(|e| format!("Failed to peel FETCH_HEAD to commit: {}", e))?;
-let (analysis, _) = repo.merge_analysis(&fetch_commit).map_err(|e| format!("Failed to analyze merge: {}", e))?;
-if analysis.is_up_to_date() {
-⋮----
-} else if analysis.is_fast_forward() {
-let mut reference = repo.find_reference("refs/heads/main").map_err(|e| format!("Failed to find main branch: {}", e))?;
-reference.set_target(fetch_commit.id(), "Fast-Forward").map_err(|e| format!("Failed to set target: {}", e))?;
-repo.set_head("refs/heads/main").map_err(|e| format!("Failed to set HEAD: {}", e))?;
-repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force())).map_err(|e| format!("Failed to checkout HEAD: {}", e))?;
-⋮----
-Err("Fast-forward merge not possible. Please resolve conflicts manually.".to_string())
-⋮----
-pub async fn get_note_graph(vault_path: String) -> Result<NoteGraph, String> {
-⋮----
-pub async fn open_vault(path: String) -> Result<Vec<VaultEntry>, String> {
-⋮----
-if !vault_path.exists() {
-return Err("Vault path does not exist".to_string());
-⋮----
-VaultManager::scan_vault(&vault_path).map_err(|e| e.to_string())
-⋮----
-pub async fn read_note_content(path: String) -> Result<String, String> {
-⋮----
-VaultManager::read_note(&note_path).map_err(|e| e.to_string())
-⋮----
-pub async fn write_note_content(path: String, content: String) -> Result<(), String> {
-⋮----
-VaultManager::write_note(&note_path, &content).map_err(|e| e.to_string())
-⋮----
-pub async fn search_notes(query: String, vault_path: String) -> Result<Vec<SearchResult>, String> {
-⋮----
-engine.search(&query).map_err(|e| e.to_string())
-⋮----
-pub async fn load_plugin(
-⋮----
-.lock()
-.unwrap()
-.load_plugin(PathBuf::from(plugin_path))
-.map_err(|e| e.to_string())
-⋮----
-pub async fn list_plugins(state: State<'_, Mutex<PluginManager>>) -> Result<Vec<Plugin>, String> {
-Ok(state.lock().unwrap().list_plugins())
-⋮----
-pub async fn load_theme(_theme_path: String) -> Result<(), String> {
-⋮----
-pub async fn list_themes() -> Result<Vec<Theme>, String> {
-Ok(vec![])
-⋮----
-pub struct SearchResult {
-⋮----
-pub struct Theme {
-````
-
-## File: src-tauri/src/main.rs
-````rust
-mod commands;
-mod graph;
-mod plugins;
-mod search;
-mod vault;
-⋮----
-use plugins::PluginManager;
-use std::sync::Mutex;
-fn main() {
-⋮----
-.manage(plugin_manager)
-.plugin(tauri_plugin_store::Builder::new().build())
-.plugin(tauri_plugin_sql::Builder::new().build())
-.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
-.plugin(tauri_plugin_shell::init())
-.plugin(tauri_plugin_os::init())
-.plugin(tauri_plugin_opener::init())
-.plugin(tauri_plugin_fs::init())
-.plugin(tauri_plugin_dialog::init())
-.invoke_handler(tauri::generate_handler![
-⋮----
-.run(tauri::generate_context!())
-.expect("error while running tauri application");
-````
-
-## File: package.json
-````json
-{
-  "name": "ebony",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri"
-  },
-  "dependencies": {
-    "@codemirror/lang-markdown": "^6.5.0",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.38.6",
-    "@radix-ui/react-context-menu": "^2.2.16",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-scroll-area": "^1.2.10",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@tailwindcss/cli": "^4.1.17",
-    "@tailwindcss/vite": "^4.1.17",
-    "@tauri-apps/api": "^2.9.0",
-    "@tauri-apps/plugin-dialog": "^2.4.2",
-    "@tauri-apps/plugin-fs": "~2",
-    "@tauri-apps/plugin-opener": "~2",
-    "@tauri-apps/plugin-os": "~2.3.2",
-    "@tauri-apps/plugin-shell": "~2.3.3",
-    "@tauri-apps/plugin-sql": "~2.3.1",
-    "@tauri-apps/plugin-store": "~2",
-    "@uiw/react-md-editor": "^4.0.8",
-    "autoprefixer": "^10.4.22",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.553.0",
-    "postcss": "^8.5.6",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-force-graph-2d": "^1.23.13",
-    "react-resizable-panels": "^3.0.6",
-    "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4.0.0",
-    "zustand": "^5.0.8"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^2.9.4",
-    "@types/node": "^24.10.0",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
-    "tw-animate-css": "^1.4.0",
-    "typescript": "~5.8.3",
-    "vite": "^7.0.4"
-  }
-}
 ````

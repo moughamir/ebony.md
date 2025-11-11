@@ -1,6 +1,6 @@
 // @FILE: src/stores/vaultStore.ts
 import { create } from 'zustand';
-import { NoteGraph, Vault, VaultEntry } from '@/types';
+import { Note, NoteGraph, Vault, VaultEntry } from '@/types';
 
 interface VaultState {
   vault: Vault | null;
@@ -10,7 +10,13 @@ interface VaultState {
   currentFilePath: string | null;
   noteGraph: NoteGraph | null;
   isLoading: boolean;
-  
+  notes: Note[];
+  currentNote: Note | null;
+
+  addNote: (note: Note) => void;
+  updateNote: (id: string, updates: Partial<Note>) => void;
+  deleteNote: (id: string) => void;
+  setCurrentNote: (note: Note | null) => void;
   setVault: (vault: Vault | null) => void;
   setVaultEntries: (entries: VaultEntry[]) => void;
   setSelectedEntry: (entry: VaultEntry | null) => void;
@@ -28,7 +34,17 @@ export const useVaultStore = create<VaultState>((set) => ({
   currentFilePath: null,
   noteGraph: null,
   isLoading: false,
-  
+  notes: [],
+  currentNote: null,
+
+  addNote: (note) => set((state) => ({ notes: [...state.notes, note] })),
+  updateNote: (id, updates) => set((state) => ({
+    notes: state.notes.map(n => n.id === id ? { ...n, ...updates } : n)
+  })),
+  deleteNote: (id) => set((state) => ({
+    notes: state.notes.filter(n => n.id !== id)
+  })),
+  setCurrentNote: (note) => set({ currentNote: note }),
   setVault: (vault) => set({ vault }),
   setVaultEntries: (entries) => set({ vaultEntries: entries }),
   setSelectedEntry: (entry) => set({ selectedEntry: entry }),

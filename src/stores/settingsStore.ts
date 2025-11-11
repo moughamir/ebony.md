@@ -1,4 +1,3 @@
-
 // @FILE: src/stores/settingsStore.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -9,7 +8,7 @@ interface SettingsState {
   fontFamily: string;
   vaultPath: string | null;
   enabledPlugins: string[];
-  
+
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   setFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
@@ -25,7 +24,7 @@ export const useSettingsStore = create<SettingsState>()(
       fontFamily: 'Inter',
       vaultPath: null,
       enabledPlugins: [],
-      
+
       setTheme: (theme) => set({ theme }),
       setFontSize: (fontSize) => set({ fontSize }),
       setFontFamily: (fontFamily) => set({ fontFamily }),
