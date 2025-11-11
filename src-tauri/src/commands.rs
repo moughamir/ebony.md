@@ -8,6 +8,14 @@ use std::sync::Mutex;
 use tauri::State;
 
 #[tauri::command]
+pub async fn initialize_git_repo(path: String) -> Result<(), String> {
+    let repo_path = PathBuf::from(path);
+    git2::Repository::init(&repo_path)
+        .map(|_| ())
+        .map_err(|e| format!("Failed to initialize git repository: {}", e))
+}
+
+#[tauri::command]
 pub async fn get_note_graph(vault_path: String) -> Result<NoteGraph, String> {
     let vault_path = PathBuf::from(vault_path);
     GraphManager::generate_graph(&vault_path)

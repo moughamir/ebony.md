@@ -61,6 +61,17 @@ function App() {
     }
   };
 
+  const initializeGit = async () => {
+    if (vault) {
+      try {
+        await invoke("initialize_git_repo", { path: vault.path });
+        console.log("Git repository initialized successfully!");
+      } catch (error) {
+        console.error("Failed to initialize Git repository:", error);
+      }
+    }
+  };
+
   if (!isGitConfigured) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
   }
@@ -75,18 +86,23 @@ function App() {
         </div>
       ) : (
         <>
-          <div className="p-2 border-b">
-            <Button
-              variant={currentView === "editor" ? "secondary" : "ghost"}
-              onClick={() => setCurrentView("editor")}
-            >
-              Editor
-            </Button>
-            <Button
-              variant={currentView === "graph" ? "secondary" : "ghost"}
-              onClick={() => setCurrentView("graph")}
-            >
-              Graph
+          <div className="p-2 border-b flex justify-between items-center">
+            <div>
+              <Button
+                variant={currentView === "editor" ? "secondary" : "ghost"}
+                onClick={() => setCurrentView("editor")}
+              >
+                Editor
+              </Button>
+              <Button
+                variant={currentView === "graph" ? "secondary" : "ghost"}
+                onClick={() => setCurrentView("graph")}
+              >
+                Graph
+              </Button>
+            </div>
+            <Button onClick={initializeGit} variant="outline">
+              Initialize Git
             </Button>
           </div>
           <ResizablePanelGroup direction="horizontal" className="flex-grow">

@@ -25,6 +25,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            initialize_git_repo,
             get_note_graph,
             open_vault,
             read_note_content,
