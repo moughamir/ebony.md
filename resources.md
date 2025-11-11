@@ -1,0 +1,6 @@
+- https://github.com/philberndt/GPTranslate?tab=readme-ov-file
+- https://github.com/vinhnx/vtcode
+- https://github.com/Abraxas-365/langchain-rust/blob/main/examples/llm_ollama.rs
+- https://github.com/Abraxas-365/langchain-rust
+- https://github.com/pepperoni21/ollama-rs
+- https://github.com/timescale/pgai/blob/main/docs/vectorizer-quick-start.md
