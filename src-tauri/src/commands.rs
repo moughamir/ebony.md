@@ -1,0 +1,65 @@
+// @FILE: src-tauri/src/commands.rs
+use crate::plugins::{Plugin, PluginManager};
+use crate::search::SearchEngine;
+use crate::vault::VaultManager;
+use std::path::PathBuf;
+use tauri::State;
+
+#[tauri::command]
+pub async fn open_vault(path: String) -> Result<Vec<String>, String> {
+    let vault_path = PathBuf::from(path);
+
+    if !vault_path.exists() {
+        return Err("Vault path does not exist".to_string());
+    }
+
+    VaultManager::scan_vault(&vault_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn search_notes(query: String, vault_path: String) -> Result<Vec<SearchResult>, String> {
+    let engine = SearchEngine::new(PathBuf::from(vault_path));
+    engine.search(&query).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn load_plugin(
+    plugin_path: String,
+    state: State<'_, PluginManager>,
+) -> Result<(), String> {
+    state
+        .load_plugin(PathBuf::from(plugin_path))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn list_plugins(state: State<'_, PluginManager>) -> Result<Vec<Plugin>, String> {
+    Ok(state.list_plugins())
+}
+
+#[tauri::command]
+pub async fn load_theme(theme_path: String) -> Result<(), String> {
+    // Implementation for loading themes
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_themes() -> Result<Vec<Theme>, String> {
+    // Implementation for listing themes
+    Ok(vec![])
+}
+
+#[derive(serde::Serialize)]
+pub struct SearchResult {
+    pub path: String,
+    pub title: String,
+    pub excerpt: String,
+    pub score: f32,
+}
+
+#[derive(serde::Serialize)]
+pub struct Theme {
+    pub id: String,
+    pub name: String,
+    pub author: String,
+}
