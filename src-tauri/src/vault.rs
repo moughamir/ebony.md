@@ -1,24 +1,34 @@
 // @FILE: src-tauri/src/vault.rs
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct VaultEntry {
+    pub name: String,
+    pub path: PathBuf,
+    pub is_dir: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<VaultEntry>>,
+}
+
 pub struct VaultManager;
 
 impl VaultManager {
-    pub fn scan_vault(path: &Path) -> io::Result<Vec<String>> {
-        let mut files = Vec::new();
-        Self::scan_directory(path, path, &mut files)?;
-        Ok(files)
+    pub fn scan_vault(path: &Path) -> io::Result<Vec<VaultEntry>> {
+        let mut entries = Vec::new();
+        Self::get_vault_entries(path, path, &mut entries)?;
+        Ok(entries)
     }
 
-    fn scan_directory(base: &Path, current: &Path, files: &mut Vec<String>) -> io::Result<()> {
+    fn get_vault_entries(base: &Path, current: &Path, entries: &mut Vec<VaultEntry>) -> io::Result<()> {
         if current.is_dir() {
+            let mut children_entries = Vec::new();
             for entry in fs::read_dir(current)? {
                 let entry = entry?;
                 let path = entry.path();
 
-                // Skip hidden files and directories
                 if let Some(name) = path.file_name() {
                     if name.to_string_lossy().starts_with('.') {
                         continue;
@@ -26,13 +36,34 @@ impl VaultManager {
                 }
 
                 if path.is_dir() {
-                    Self::scan_directory(base, &path, files)?;
+                    let mut children = Vec::new();
+                    Self::get_vault_entries(base, &path, &mut children)?;
+                    children_entries.push(VaultEntry {
+                        name: path.file_name().unwrap().to_string_lossy().to_string(),
+                        path: path.clone(),
+                        is_dir: true,
+                        children: Some(children),
+                    });
                 } else if Self::is_markdown_file(&path) {
-                    if let Ok(relative) = path.strip_prefix(base) {
-                        files.push(relative.to_string_lossy().to_string());
-                    }
+                    children_entries.push(VaultEntry {
+                        name: path.file_name().unwrap().to_string_lossy().to_string(),
+                        path: path.clone(),
+                        is_dir: false,
+                        children: None,
+                    });
                 }
             }
+            // Sort directories first, then files, both alphabetically
+            children_entries.sort_by(|a, b| {
+                if a.is_dir && !b.is_dir {
+                    std::cmp::Ordering::Less
+                } else if !a.is_dir && b.is_dir {
+                    std::cmp::Ordering::Greater
+                } else {
+                    a.name.cmp(&b.name)
+                }
+            });
+            entries.extend(children_entries);
         }
         Ok(())
     }
@@ -49,7 +80,6 @@ impl VaultManager {
     }
 
     pub fn write_note(path: &Path, content: &str) -> io::Result<()> {
-        // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }

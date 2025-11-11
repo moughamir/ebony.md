@@ -1,35 +1,39 @@
 // @FILE: src/stores/vaultStore.ts
 import { create } from 'zustand';
-import { Note, Vault } from '@/types';
+import { NoteGraph, Vault, VaultEntry } from '@/types';
 
 interface VaultState {
   vault: Vault | null;
-  currentNote: Note | null;
-  notes: Note[];
+  vaultEntries: VaultEntry[];
+  selectedEntry: VaultEntry | null;
+  currentFileContent: string;
+  currentFilePath: string | null;
+  noteGraph: NoteGraph | null;
   isLoading: boolean;
   
-  setVault: (vault: Vault) => void;
-  setCurrentNote: (note: Note | null) => void;
-  addNote: (note: Note) => void;
-  updateNote: (id: string, updates: Partial<Note>) => void;
-  deleteNote: (id: string) => void;
+  setVault: (vault: Vault | null) => void;
+  setVaultEntries: (entries: VaultEntry[]) => void;
+  setSelectedEntry: (entry: VaultEntry | null) => void;
+  setCurrentFileContent: (content: string) => void;
+  setCurrentFilePath: (path: string | null) => void;
+  setNoteGraph: (graph: NoteGraph | null) => void;
   setLoading: (loading: boolean) => void;
 }
 
 export const useVaultStore = create<VaultState>((set) => ({
   vault: null,
-  currentNote: null,
-  notes: [],
+  vaultEntries: [],
+  selectedEntry: null,
+  currentFileContent: "",
+  currentFilePath: null,
+  noteGraph: null,
   isLoading: false,
   
   setVault: (vault) => set({ vault }),
-  setCurrentNote: (note) => set({ currentNote: note }),
-  addNote: (note) => set((state) => ({ notes: [...state.notes, note] })),
-  updateNote: (id, updates) => set((state) => ({
-    notes: state.notes.map(n => n.id === id ? { ...n, ...updates } : n)
-  })),
-  deleteNote: (id) => set((state) => ({
-    notes: state.notes.filter(n => n.id !== id)
-  })),
+  setVaultEntries: (entries) => set({ vaultEntries: entries }),
+  setSelectedEntry: (entry) => set({ selectedEntry: entry }),
+  setCurrentFileContent: (content) => set({ currentFileContent: content }),
+  setCurrentFilePath: (path) => set({ currentFilePath: path }),
+  setNoteGraph: (graph) => set({ noteGraph: graph }),
   setLoading: (loading) => set({ isLoading: loading }),
 }));

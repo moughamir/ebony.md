@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod graph;
 mod plugins;
 mod search;
 mod vault;
@@ -19,7 +20,10 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            get_note_graph,
             open_vault,
+            read_note_content,
+            write_note_content,
             search_notes,
             load_plugin,
             list_plugins,

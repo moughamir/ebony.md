@@ -1,12 +1,19 @@
 // @FILE: src-tauri/src/commands.rs
+use crate::graph::{GraphManager, NoteGraph};
 use crate::plugins::{Plugin, PluginManager};
 use crate::search::SearchEngine;
-use crate::vault::VaultManager;
+use crate::vault::{VaultEntry, VaultManager};
 use std::path::PathBuf;
 use tauri::State;
 
 #[tauri::command]
-pub async fn open_vault(path: String) -> Result<Vec<String>, String> {
+pub async fn get_note_graph(vault_path: String) -> Result<NoteGraph, String> {
+    let vault_path = PathBuf::from(vault_path);
+    GraphManager::generate_graph(&vault_path)
+}
+
+#[tauri::command]
+pub async fn open_vault(path: String) -> Result<Vec<VaultEntry>, String> {
     let vault_path = PathBuf::from(path);
 
     if !vault_path.exists() {
@@ -14,6 +21,18 @@ pub async fn open_vault(path: String) -> Result<Vec<String>, String> {
     }
 
     VaultManager::scan_vault(&vault_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn read_note_content(path: String) -> Result<String, String> {
+    let note_path = PathBuf::from(path);
+    VaultManager::read_note(&note_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn write_note_content(path: String, content: String) -> Result<(), String> {
+    let note_path = PathBuf::from(path);
+    VaultManager::write_note(&note_path, &content).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

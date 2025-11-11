@@ -1,50 +1,96 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useVaultStore } from "./stores/vaultStore";
+import FileTree from "./components/FileTree";
+import MarkdownEditor from "./components/MarkdownEditor";
+import GraphView from "./components/GraphView";
+import { VaultEntry } from "./types";
+import { Button } from "./components/ui/button";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "./components/ui/resizable";
+
+type View = "editor" | "graph";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const { vault, setVault, vaultEntries, setVaultEntries, setLoading } =
+    useVaultStore();
+  const [currentView, setCurrentView] = useState<View>("editor");
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const selectVault = async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: "Select a vault directory",
+    });
+
+    if (selected && typeof selected === "string") {
+      setLoading(true);
+      try {
+        const entries: VaultEntry[] = await invoke("open_vault", {
+          path: selected,
+        });
+        setVault({ path: selected, name: selected.split("/").pop() || "" });
+        setVaultEntries(entries);
+      } catch (error) {
+        console.error("Failed to open vault:", error);
+        setVault(null);
+        setVaultEntries([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Optionally, try to open a default vault or the last opened one
+    // For now, we'll just prompt the user to select one.
+  }, []);
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    <div className="h-screen w-screen flex flex-col">
+      {!vault ? (
+        <div className="flex flex-col items-center justify-center h-full">
+          <h1 className="text-2xl font-bold mb-4">Welcome to Ebony</h1>
+          <p className="mb-4">Please select a vault to get started.</p>
+          <Button onClick={selectVault}>Open Vault</Button>
+        </div>
+      ) : (
+        <>
+          <div className="p-2 border-b">
+            <Button
+              variant={currentView === "editor" ? "secondary" : "ghost"}
+              onClick={() => setCurrentView("editor")}
+            >
+              Editor
+            </Button>
+            <Button
+              variant={currentView === "graph" ? "secondary" : "ghost"}
+              onClick={() => setCurrentView("graph")}
+            >
+              Graph
+            </Button>
+          </div>
+          <ResizablePanelGroup direction="horizontal" className="flex-grow">
+            <ResizablePanel defaultSize={20} minSize={15}>
+              <div className="h-full p-2 border-r">
+                <h2 className="text-lg font-semibold mb-2">
+                  Vault: {vault.name}
+                </h2>
+                <FileTree entries={vaultEntries} />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={80} minSize={30}>
+              {currentView === "editor" ? <MarkdownEditor /> : <GraphView />}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </>
+      )}
+    </div>
   );
 }
 

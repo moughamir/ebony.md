@@ -1,4 +1,11 @@
 // @FILE: src/types/index.ts
+export interface VaultEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  children?: VaultEntry[];
+}
+
 export interface Note {
   id: string;
   path: string;
@@ -12,7 +19,22 @@ export interface Note {
 export interface Vault {
   path: string;
   name: string;
-  notes: Note[];
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  path: string;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface NoteGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
 }
 
 export interface Plugin {
