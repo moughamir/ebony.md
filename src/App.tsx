@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Store } from "@tauri-apps/plugin-store";
-import { useVaultStore } from "./stores/vaultStore";
+import { useEffect, useState } from "react";
+import { CommandPalette } from "./components/CommandPalette";
 import FileTree from "./components/FileTree";
-import MarkdownEditor from "./components/MarkdownEditor";
 import GraphView from "./components/GraphView";
+import MarkdownEditor from "./components/MarkdownEditor";
 import Onboarding from "./components/Onboarding";
-import { VaultEntry } from "./types";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import {
@@ -15,10 +14,10 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "./components/ui/resizable";
+import { useVaultStore } from "./stores/vaultStore";
+import type { VaultEntry } from "./types";
 
 type View = "editor" | "graph";
-const store = new Store(".settings.dat");
-
 function App() {
   const { vault, setVault, vaultEntries, setVaultEntries, setLoading } =
     useVaultStore();
@@ -27,11 +26,12 @@ function App() {
   const [commitMessage, setCommitMessage] = useState("");
 
   useEffect(() => {
-    const checkGitConfig = async () => {
+    const initStore = async () => {
+      const store = await Store.load(".settings.dat");
       const name = await store.get("git.name");
       setIsGitConfigured(!!name);
     };
-    checkGitConfig();
+    initStore();
   }, []);
 
   const handleOnboardingComplete = () => {
@@ -88,7 +88,10 @@ function App() {
   const gitCommit = async () => {
     if (vault && commitMessage) {
       try {
-        await invoke("git_commit", { path: vault.path, message: commitMessage });
+        await invoke("git_commit", {
+          path: vault.path,
+          message: commitMessage,
+        });
         console.log("Changes committed successfully!");
         setCommitMessage("");
       } catch (error) {
@@ -148,6 +151,10 @@ function App() {
                 Graph
               </Button>
             </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <kbd className="px-2 py-1 bg-muted rounded">⌘K</kbd>
+              <span>Quick Search</span>
+            </div>
             <div className="flex items-center space-x-2">
               <Button onClick={initializeGit} variant="outline">
                 Initialize Git
@@ -188,6 +195,7 @@ function App() {
           </ResizablePanelGroup>
         </>
       )}
+      <CommandPalette />
     </div>
   );
 }

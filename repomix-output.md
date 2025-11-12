@@ -57,6 +57,16 @@ src/
     GraphView.tsx
     MarkdownEditor.tsx
     Onboarding.tsx
+  features/
+    graph/
+      GraphView.tsx
+    notes/
+      noteApi.ts
+      noteTypes.ts
+    search/
+      useNoteSearch.ts
+    settings/
+      SettingsPanel.tsx
   hooks/
     useDebounce.ts
     useNoteOperations.ts
@@ -95,6 +105,8 @@ src-tauri/
     Square89x89Logo.png
     StoreLogo.png
   src/
+    commands/
+      fs.rs
     commands.rs
     graph.rs
     lib.rs
@@ -330,17 +342,6 @@ import ForceGraph2D from 'react-force-graph-2d';
 import { NoteGraph } from '@/types';
 ````
 
-## File: src/components/MarkdownEditor.tsx
-````typescript
-import React, { useEffect, useState, useCallback } from "react";
-import { useVaultStore } from "@/stores/vaultStore";
-import { invoke } from "@tauri-apps/api/core";
-import { useDebounce } from "@/hooks/useDebounce";
-import MDEditor from "@uiw/react-md-editor";
-⋮----
-const handleChange = (value: string | undefined) =>
-````
-
 ## File: src/components/Onboarding.tsx
 ````typescript
 import React, { useState } from 'react';
@@ -355,6 +356,47 @@ interface OnboardingProps {
 const Onboarding: React.FC<OnboardingProps> = (
 ⋮----
 const handleSave = async () =>
+⋮----
+onChange=
+````
+
+## File: src/features/graph/GraphView.tsx
+````typescript
+import ForceGraph from "react-force-graph-2d";
+import { Note } from "../notes/noteTypes";
+export const GraphView = (
+````
+
+## File: src/features/notes/noteApi.ts
+````typescript
+import { invoke } from "@tauri-apps/api/core";
+import { Note } from "./noteTypes";
+export const createNote = async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) =>
+````
+
+## File: src/features/notes/noteTypes.ts
+````typescript
+export interface Note {
+    id: string;
+    title: string;
+    content: string;
+    createdAt: Date;
+    updatedAt: Date;
+    tags: string[];
+}
+````
+
+## File: src/features/search/useNoteSearch.ts
+````typescript
+import { Note } from "../notes/noteTypes";
+import { useState, useMemo } from "react";
+export const useNoteSearch = (notes: Note[]) =>
+````
+
+## File: src/features/settings/SettingsPanel.tsx
+````typescript
+import { useSettingsStore } from "@/stores/settingsStore";
+export const SettingsPanel = () =>
 ⋮----
 onChange=
 ````
@@ -414,24 +456,6 @@ import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[])
 ````
 
-## File: src/stores/settingsStore.ts
-````typescript
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-interface SettingsState {
-  theme: 'light' | 'dark' | 'system';
-  fontSize: number;
-  fontFamily: string;
-  vaultPath: string | null;
-  enabledPlugins: string[];
-  setTheme: (theme: 'light' | 'dark' | 'system') => void;
-  setFontSize: (size: number) => void;
-  setFontFamily: (family: string) => void;
-  setVaultPath: (path: string) => void;
-  togglePlugin: (pluginId: string) => void;
-}
-````
-
 ## File: src/App.css
 ````css
 .logo.vite:hover {
@@ -483,6 +507,13 @@ import App from "./App";
     "store:default"
   ]
 }
+````
+
+## File: src-tauri/src/commands/fs.rs
+````rust
+pub async fn create_note(path: String, content: String) -> Result<(), String> {
+std::fs::write(&path, content).map_err(|e| e.to_string())?;
+Ok(())
 ````
 
 ## File: src-tauri/src/graph.rs
@@ -1631,31 +1662,32 @@ SOFTWARE.
 }
 ````
 
-## File: src/stores/vaultStore.ts
+## File: src/components/MarkdownEditor.tsx
+````typescript
+import React, { useEffect, useState, useCallback } from "react";
+import { useVaultStore } from "@/stores/vaultStore";
+import { invoke } from "@tauri-apps/api/core";
+import { useDebounce } from "@/hooks/useDebounce";
+import MDEditor from "@uiw/react-md-editor";
+⋮----
+const handleChange = (value: string | undefined) =>
+````
+
+## File: src/stores/settingsStore.ts
 ````typescript
 import { create } from 'zustand';
-import { Note, NoteGraph, Vault, VaultEntry } from '@/types';
-interface VaultState {
-  vault: Vault | null;
-  vaultEntries: VaultEntry[];
-  selectedEntry: VaultEntry | null;
-  currentFileContent: string;
-  currentFilePath: string | null;
-  noteGraph: NoteGraph | null;
-  isLoading: boolean;
-  notes: Note[];
-  currentNote: Note | null;
-  addNote: (note: Note) => void;
-  updateNote: (id: string, updates: Partial<Note>) => void;
-  deleteNote: (id: string) => void;
-  setCurrentNote: (note: Note | null) => void;
-  setVault: (vault: Vault | null) => void;
-  setVaultEntries: (entries: VaultEntry[]) => void;
-  setSelectedEntry: (entry: VaultEntry | null) => void;
-  setCurrentFileContent: (content: string) => void;
-  setCurrentFilePath: (path: string | null) => void;
-  setNoteGraph: (graph: NoteGraph | null) => void;
-  setLoading: (loading: boolean) => void;
+import { persist } from 'zustand/middleware';
+interface SettingsState {
+  theme: 'light' | 'dark' | 'system';
+  fontSize: number;
+  fontFamily: string;
+  vaultPath: string | null;
+  enabledPlugins: string[];
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  setFontSize: (size: number) => void;
+  setFontFamily: (family: string) => void;
+  setVaultPath: (path: string) => void;
+  togglePlugin: (pluginId: string) => void;
 }
 ````
 
@@ -1860,6 +1892,34 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 ````
 
+## File: src/stores/vaultStore.ts
+````typescript
+import { create } from 'zustand';
+import { Note, NoteGraph, Vault, VaultEntry } from '@/types';
+interface VaultState {
+  vault: Vault | null;
+  vaultEntries: VaultEntry[];
+  selectedEntry: VaultEntry | null;
+  currentFileContent: string;
+  currentFilePath: string | null;
+  noteGraph: NoteGraph | null;
+  isLoading: boolean;
+  notes: Note[];
+  currentNote: Note | null;
+  addNote: (note: Note) => void;
+  updateNote: (id: string, updates: Partial<Note>) => void;
+  deleteNote: (id: string) => void;
+  setCurrentNote: (note: Note | null) => void;
+  setVault: (vault: Vault | null) => void;
+  setVaultEntries: (entries: VaultEntry[]) => void;
+  setSelectedEntry: (entry: VaultEntry | null) => void;
+  setCurrentFileContent: (content: string) => void;
+  setCurrentFilePath: (path: string | null) => void;
+  setNoteGraph: (graph: NoteGraph | null) => void;
+  setLoading: (loading: boolean) => void;
+}
+````
+
 ## File: src-tauri/Cargo.toml
 ````toml
 [package]
@@ -1910,68 +1970,6 @@ import type { Config } from 'tailwindcss'
 @layer base {
 ⋮----
 body {
-````
-
-## File: package.json
-````json
-{
-  "name": "ebony",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri"
-  },
-  "dependencies": {
-    "@codemirror/lang-markdown": "^6.5.0",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.38.6",
-    "@radix-ui/react-context-menu": "^2.2.16",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-scroll-area": "^1.2.10",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@tailwindcss/cli": "^4.1.17",
-    "@tailwindcss/vite": "^4.1.17",
-    "@tauri-apps/api": "^2.9.0",
-    "@tauri-apps/plugin-dialog": "^2.4.2",
-    "@tauri-apps/plugin-fs": "~2",
-    "@tauri-apps/plugin-opener": "~2",
-    "@tauri-apps/plugin-os": "~2.3.2",
-    "@tauri-apps/plugin-shell": "~2.3.3",
-    "@tauri-apps/plugin-sql": "~2.3.1",
-    "@tauri-apps/plugin-store": "~2",
-    "@uiw/react-md-editor": "^4.0.8",
-    "autoprefixer": "^10.4.22",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "lucide-react": "^0.553.0",
-    "postcss": "^8.5.6",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-force-graph-2d": "^1.23.13",
-    "react-hotkeys-hook": "^5.2.1",
-    "react-resizable-panels": "^3.0.6",
-    "remark": "^15.0.1",
-    "remark-gfm": "^4.0.1",
-    "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4.0.0",
-    "zustand": "^5.0.8"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^2.9.4",
-    "@types/node": "^24.10.0",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
-    "tw-animate-css": "^1.4.0",
-    "typescript": "~5.8.3",
-    "vite": "^7.0.4"
-  }
-}
 ````
 
 ## File: src/App.tsx
@@ -2131,6 +2129,68 @@ fn main() {
 ⋮----
 .run(tauri::generate_context!())
 .expect("error while running tauri application");
+````
+
+## File: package.json
+````json
+{
+  "name": "ebony",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tailwindcss/cli": "^4.1.17",
+    "@tailwindcss/vite": "^4.1.17",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.4.2",
+    "@tauri-apps/plugin-fs": "~2",
+    "@tauri-apps/plugin-opener": "~2",
+    "@tauri-apps/plugin-os": "~2.3.2",
+    "@tauri-apps/plugin-shell": "~2.3.3",
+    "@tauri-apps/plugin-sql": "~2.3.1",
+    "@tauri-apps/plugin-store": "~2",
+    "@uiw/react-md-editor": "^4.0.8",
+    "autoprefixer": "^10.4.22",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "lucide-react": "^0.553.0",
+    "postcss": "^8.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-force-graph-2d": "^1.23.13",
+    "react-hotkeys-hook": "^5.2.1",
+    "react-resizable-panels": "^3.0.6",
+    "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.0.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.4",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
 ````
 
 ## File: README.md

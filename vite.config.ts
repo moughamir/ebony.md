@@ -5,25 +5,26 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  
+
   clearScreen: false,
-  
+
   server: {
-    strictPort: true,
-    port: 3000,
+    strictPort: false,
+    port: 3001,
+    host: true,
   },
-  
-  envPrefix: ['VITE_', 'TAURI_'],
-  
+
+  envPrefix: ["VITE_", "TAURI_"],
+
   build: {
     target: ["es2021", "chrome100", "safari13"],
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_DEBUG,
   },
-  
+
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 });

@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { useDebounce } from "@/hooks/useDebounce";
 import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
-import "@uiw/react-markdown-preview/markdown.css";
 
 const MarkdownEditor: React.FC = () => {
   const { currentFileContent, currentFilePath, setCurrentFileContent } =
@@ -30,7 +29,7 @@ const MarkdownEditor: React.FC = () => {
         }
       }
     },
-    [currentFilePath]
+    [currentFilePath],
   );
 
   const debouncedSave = useDebounce(saveContent, 1000); // Save after 1 second of inactivity

@@ -59,6 +59,9 @@ importers:
       '@tauri-apps/plugin-store':
         specifier: ~2
         version: 2.4.1
+      '@uiw/react-markdown-preview':
+        specifier: ^5.1.5
+        version: 5.1.5(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@uiw/react-md-editor':
         specifier: ^4.0.8
         version: 4.0.8(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)

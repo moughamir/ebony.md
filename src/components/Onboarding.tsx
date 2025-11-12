@@ -1,24 +1,25 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Store } from '@tauri-apps/plugin-store';
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Store } from "@tauri-apps/plugin-store";
 
-const store = new Store('.settings.dat');
+// Store will be loaded when needed
 
 interface OnboardingProps {
   onComplete: () => void;
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [repoUrl, setRepoUrl] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
 
   const handleSave = async () => {
-    await store.set('git.name', name);
-    await store.set('git.email', email);
-    await store.set('git.repoUrl', repoUrl);
+    const store = await Store.load(".settings.dat");
+    await store.set("git.name", name);
+    await store.set("git.email", email);
+    await store.set("git.repoUrl", repoUrl);
     await store.save();
     onComplete();
   };

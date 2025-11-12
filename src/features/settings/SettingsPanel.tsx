@@ -1,7 +1,7 @@
 import { useSettingsStore } from "@/stores/settingsStore";
 
 export const SettingsPanel = () => {
-  const { theme, setTheme, fontSize, setFontSize } = useSettingsStore();
+  const { theme, setTheme } = useSettingsStore();
 
   return (
     <div className="p-4 space-y-4">

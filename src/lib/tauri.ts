@@ -17,7 +17,7 @@ export class TauriAPI {
   }
 
   static async listFiles(path: string): Promise<any[]> {
-    return readDir(path, { recursive: true });
+    return readDir(path);
   }
 
   static async deleteNote(path: string): Promise<void> {
@@ -34,7 +34,7 @@ export class TauriAPI {
     return invoke("load_plugin", { pluginPath });
   }
 
-  static async listPlugins(): Promise<Plugin[]> {
+  static async listPlugins(): Promise<any[]> {
     return invoke("list_plugins");
   }
 
@@ -43,7 +43,7 @@ export class TauriAPI {
     return invoke("load_theme", { themePath });
   }
 
-  static async listThemes(): Promise<Theme[]> {
+  static async listThemes(): Promise<any[]> {
     return invoke("list_themes");
   }
 }
